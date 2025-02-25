@@ -2,6 +2,8 @@ services:
   vaultwarden-backup:
     container_name: vaultwarden-backup
     platform: linux/amd64
+    # to use the already existing docker image, uncomment the next line and comment the whole build section below
+    # image: francishgr/vaultwarden-backup
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,5 +13,5 @@ services:
       - .env
     volumes: 
       - /root/docker/vaultwarden-backup:${APP_DATA_LOCATION}
-    command: bash -c "chmod +x create_backup.sh && chmod +x decrypt_backup.sh && tail -f /dev/null"
+    command: bash -c "chmod +x ${APP_DATA_LOCATION}/create_backup.sh && chmod +x ${APP_DATA_LOCATION}/decrypt_backup.sh && tail -f /dev/null"
 

@@ -51,3 +51,42 @@ fi
 echo "$(TZ=CET date "+%H:%M:%S") - Logout"
 bw logout
 unset BW_SESSION
+
+# Delete all backups that are older then environment variable $max_keep_days - keep always 1 backup per day for the defined amount of days
+
+if [[ -n "$max_keep_days" ]]; then
+
+# Get today's date in YYYY-MM-DD format
+TODAY=$(date +%Y-%m-%d)
+
+# Temporary file to store files to keep
+TMP_KEEP_LIST="/tmp/keep_files.txt"
+> "$TMP_KEEP_LIST" # Clear the file if it exists
+
+# Step 1: Keep all files from today
+find "$BACKUP_LOCATION" -type f -name '*' -newermt "$TODAY" -print >> "$TMP_KEEP_LIST"
+
+# Step 2: Keep the newest file for each of the last $max_keep_days days older than today
+for ((i=1; i<=max_keep_days; i++)); do
+    DAY=$(date -d "$i days ago" +%Y-%m-%d)       # Get the specific day
+    NEXT_DAY=$(date -d "$((i - 1)) days ago" +%Y-%m-%d) # Get the next day (to define a range)
+    
+    # Find files modified on that specific day and get the newest one
+    find "$BACKUP_LOCATION" -type f -name '*' -newermt "$DAY" ! -newermt "$NEXT_DAY" -printf '%T@ %p\n' | \
+    sort -nr | \
+    head -n 1 | \
+    cut -d' ' -f2- >> "$TMP_KEEP_LIST"
+done
+
+# Step 3: Delete all other files not in the keep list
+find "$BACKUP_LOCATION" -type f -name '*' | grep -vFf "$TMP_KEEP_LIST" | while read -r file; do
+    echo "Deleting: $file"
+    rm -- "$file"
+done
+
+# Cleanup temporary file
+rm "$TMP_KEEP_LIST"
+
+echo "Cleanup complete. Kept all files from today and the newest file per day for the last $max_keep_days days."
+   
+fi

@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 debian:latest
+FROM debian:latest
 ENV DEBIAN_FRONTEND=noninteractive
 ARG APP_DATA_LOCATION
 
