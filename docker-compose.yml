@@ -1,0 +1,15 @@
+services:
+  vaultwarden-backup:
+    container_name: vaultwarden-backup
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DATA_LOCATION: ${APP_DATA_LOCATION}
+    env_file:
+      - .env
+    volumes: 
+      - /root/docker/vaultwarden-backup:${APP_DATA_LOCATION}
+    command: bash -c "chmod +x create_backup.sh && chmod +x decrypt_backup.sh && tail -f /dev/null"
+
