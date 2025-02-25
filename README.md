@@ -3,7 +3,8 @@
 ### tl;dr
 ```
 - clone repo, populate .env file and run docker compose up -d
-- run the create_backup.sh from within the container or from outside: docker exec -ti vaultwarden-backup /app-data/create_backup.sh
+- run the create_backup.sh from within the container or from outside:
+docker exec -ti vaultwarden-backup /app-data/create_backup.sh
 ```
 
 ### I. Background
@@ -29,6 +30,7 @@
 - read the comments in the .env.example file
 - all data for the environment variables in the .env file can be found when you are logged into your vaultwarden instances webpage under settings
 - APP_DATA_LOCATION and BACKUP_LOCATION don't need to be edited. You can find your backups then directly in the repository folder under "backups"
+  
 **docker-compose.yml**
 - edit the first part before the colon to reflect the location where you have saved all of this repos files "/root/docker/vaultwarden-backup:${APP_DATA_LOCATION}"
 
