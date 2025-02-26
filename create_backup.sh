@@ -2,8 +2,8 @@
 
 # !IMPORTANT! set the environment variables in the .env file!
 
-echo "$(TZ=CET date "+%H:%M:%S") - Starting Vaultwarden vault backup. (If login fails, please set environment variables)"
-echo "$(TZ=CET date "+%H:%M:%S") - Attempting Login"
+echo "$(TZ=CET date "+%H:%M:%S") - Starting Vaultwarden vault backup. (If login fails, please set environment variables)" | tee /proc/1/fd/1
+echo "$(TZ=CET date "+%H:%M:%S") - Attempting Login" | tee /proc/1/fd/1
 
 # Checking current status of bw cli config, especially whether the server adress has been set
 STATUS="$(bw status | jq -r '.status')"
@@ -15,13 +15,14 @@ if [[ "$STATUS" == "unauthenticated" ]]; then
 fi
 
 # unlocking the Session
-echo "$(TZ=CET date "+%H:%M:%S") - Attempting session unlock"
+echo "$(TZ=CET date "+%H:%M:%S") - Attempting session unlock" | tee /proc/1/fd/1
 export BW_SESSION=$(bw unlock --raw $BW_PASSWORD)
 
 # If session unlock fails, error message. Possible to add also notifaction via email or other messenger here
 if [ "$BW_SESSION" == "" ]; then
-    echo "$(TZ=CET date "+%H:%M:%S") - Error: Session unlock failed"
+    echo "$(TZ=CET date "+%H:%M:%S") - Error: Session unlock failed" | tee /proc/1/fd/1
     bw logout
+    echo
     exit 1
 fi;
 
@@ -35,12 +36,12 @@ TIMESTAMP=$(TZ=CET date "+%Y-%m-%d_%H-%M")
 ENC_OUTPUT_FILE=$BACKUP_LOCATION/$EXPORT_OUTPUT_BASE$TIMESTAMP.enc
 
 # individual user vault backup export and encryption
-echo "$(TZ=CET date "+%H:%M:%S") - Exporting inidivual user vault, encrypted with env password"
+echo "$(TZ=CET date "+%H:%M:%S") - Exporting inidivual user vault, encrypted with env password" | tee /proc/1/fd/1
 bw --raw --session $BW_SESSION export --format json | openssl enc -aes-256-cbc -pbkdf2 -iter 1000000 -k $BW_PASSWORD -out $ENC_OUTPUT_FILE
 
 # if organization vault exists, also backup export and encryption
 if [[ -n "$BW_ORGID" ]]; then
-  echo "$(TZ=CET date "+%H:%M:%S") - Exporting organization vault, encrypted with env password"
+  echo "$(TZ=CET date "+%H:%M:%S") - Exporting organization vault, encrypted with env password" | tee /proc/1/fd/1
   TIMESTAMP=$(TZ=CET date "+%Y-%m-%d_%H-%M")
   EXPORT_OUTPUT_END="_ORG"
   ENC_OUTPUT_FILE=$BACKUP_LOCATION/$EXPORT_OUTPUT_BASE$TIMESTAMP$EXPORT_OUTPUT_END.enc
@@ -48,33 +49,41 @@ if [[ -n "$BW_ORGID" ]]; then
 fi
 
 # logout
-echo "$(TZ=CET date "+%H:%M:%S") - Logout"
+echo "$(TZ=CET date "+%H:%M:%S") - Logout" | tee /proc/1/fd/1
 bw logout
-unset BW_SESSION
+unset BW_SESSION 
 
-# Delete all backups that are older then environment variable $max_keep_days - keep always 1 backup per day for the defined amount of days
+# Delete all backups that are older then environment variable $max_keep_days - but keep one weekly for the last $max_keep_months months
 
 if [[ -n "$max_keep_days" ]]; then
 
-# Get today's date in YYYY-MM-DD format
-TODAY=$(date +%Y-%m-%d)
+echo "$(TZ=CET date "+%H:%M:%S") - Deleting all backups older than $max_keep_days days while keeping one weekly backup for the last $max_keep_months months"
+
+# recalculate retention periods
+WEEKS_TO_KEEP=$(($max_keep_months*4))     # Number of weeks
 
 # Temporary file to store files to keep
 TMP_KEEP_LIST="/tmp/keep_files.txt"
 > "$TMP_KEEP_LIST" # Clear the file if it exists
 
-# Step 1: Keep all files from today
-find "$BACKUP_LOCATION" -type f -name '*' -newermt "$TODAY" -print >> "$TMP_KEEP_LIST"
+# Get today's date in YYYY-MM-DD format
+TODAY=$(date +%Y-%m-%d)
 
-# Step 2: Keep the newest file for each of the last $max_keep_days days older than today
-for ((i=1; i<=max_keep_days; i++)); do
-    DAY=$(date -d "$i days ago" +%Y-%m-%d)       # Get the specific day
-    NEXT_DAY=$(date -d "$((i - 1)) days ago" +%Y-%m-%d) # Get the next day (to define a range)
+# Step 1: Keep all backups from the last $max_keep_days days
+for ((i=0; i<max_keep_days; i++)); do
+    DAY=$(date -d "$i days ago" +%Y-%m-%d)
+    find "$BACKUP_LOCATION" -type f -name '*' -newermt "$DAY" ! -newermt "$TODAY" -print >> "$TMP_KEEP_LIST"
+done
+
+# Step 2: Keep the two newest backups per week for the previous $WEEKS_TO_KEEP weeks
+for ((i=1; i<=WEEKS_TO_KEEP; i++)); do
+    WEEK_START=$(date -d "$((i * 7)) days ago" +%Y-%m-%d)       # Start of the week
+    NEXT_WEEK_START=$(date -d "$(((i - 1) * 7)) days ago" +%Y-%m-%d) # Start of the next week
     
-    # Find files modified on that specific day and get the newest one
-    find "$BACKUP_LOCATION" -type f -name '*' -newermt "$DAY" ! -newermt "$NEXT_DAY" -printf '%T@ %p\n' | \
+    # Find files modified during that week and keep only the two newest ones
+    find "$BACKUP_LOCATION" -type f -name '*' -newermt "$WEEK_START" ! -newermt "$NEXT_WEEK_START" -printf '%T@ %p\n' | \
     sort -nr | \
-    head -n 1 | \
+    head -n 2 | \
     cut -d' ' -f2- >> "$TMP_KEEP_LIST"
 done
 
@@ -87,6 +96,6 @@ done
 # Cleanup temporary file
 rm "$TMP_KEEP_LIST"
 
-echo "Cleanup complete. Kept all files from today and the newest file per day for the last $max_keep_days days."
-   
+echo "$(TZ=CET date "+%H:%M:%S") - Cleanup complete. Kept all backups for the last $max_keep_days days and the two newest backups per week for the previous $max_keep_months months."
+
 fi
