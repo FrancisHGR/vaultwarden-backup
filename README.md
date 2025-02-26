@@ -30,9 +30,11 @@ docker exec -ti vaultwarden-backup /app-data/create_backup.sh
 - read the comments in the .env.example file
 - all data for the environment variables in the .env file can be found when you are logged into your vaultwarden instances webpage under settings
 - APP_DATA_LOCATION and BACKUP_LOCATION don't need to be edited. You can find your backups then directly in the repository folder under "backups"
+- no Backups are deleted as a standard policy. if you want to clean up old backups, edit max_keep_days for number of last days all backups are kept and max_keep_months for amount of months, one weekly backup is kept
   
 **docker-compose.yml**
-- edit the first part before the colon to reflect the location where you have saved all of this repos files "/root/docker/vaultwarden-backup:${APP_DATA_LOCATION}"
+- image: you can use my prebuild docker image francishgr/vaultwarden-backup instead of building it
+- volumes: edit the first part before the colon to reflect the location where you have saved all of this repos files "/root/docker/vaultwarden-backup:${APP_DATA_LOCATION}"
 
 ### IV. further readings
 - thanks to the inspirations, especially to https://github.com/tangowithfoxtrot/bw-docker?tab=readme-ov-file for inspiration on the docker image and some backgrounds on the BW CLI usage https://binarypatrick.dev/posts/bitwarden-automated-backup/
