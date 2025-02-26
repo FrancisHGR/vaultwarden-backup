@@ -57,7 +57,7 @@ unset BW_SESSION
 
 if [[ -n "$max_keep_days" ]]; then
 
-echo "$(TZ=CET date "+%H:%M:%S") - Deleting all backups older than $max_keep_days days while keeping one weekly backup for the last $max_keep_months months"
+echo "$(TZ=CET date "+%H:%M:%S") - Deleting all backups older than $max_keep_days days while keeping one weekly backup for the last $max_keep_months months" | tee /proc/1/fd/1
 
 # recalculate retention periods
 WEEKS_TO_KEEP=$(($max_keep_months*4))     # Number of weeks
@@ -69,18 +69,15 @@ TMP_KEEP_LIST="/tmp/keep_files.txt"
 # Get today's date in YYYY-MM-DD format
 TODAY=$(date +%Y-%m-%d)
 
-# Step 1: Keep all backups from the last $max_keep_days days
-for ((i=0; i<max_keep_days; i++)); do
-    DAY=$(date -d "$i days ago" +%Y-%m-%d)
-    find "$BACKUP_LOCATION" -type f -name '*' -newermt "$DAY" ! -newermt "$TODAY" -print >> "$TMP_KEEP_LIST"
-done
+# Step 1: Keep all backups from the last $DAYS_TO_KEEP days
+find "$BACKUP_LOCATION" -type f -name '*' -newermt "$(date -d "$max_keep_days days ago" +%Y-%m-%d)" -print >> "$TMP_KEEP_LIST"
 
 # Step 2: Keep the two newest backups per week for the previous $WEEKS_TO_KEEP weeks
 for ((i=1; i<=WEEKS_TO_KEEP; i++)); do
     WEEK_START=$(date -d "$((i * 7)) days ago" +%Y-%m-%d)       # Start of the week
     NEXT_WEEK_START=$(date -d "$(((i - 1) * 7)) days ago" +%Y-%m-%d) # Start of the next week
-    
-    # Find files modified during that week and keep only the two newest ones
+
+    # Find files modified during that week and get the two newest ones
     find "$BACKUP_LOCATION" -type f -name '*' -newermt "$WEEK_START" ! -newermt "$NEXT_WEEK_START" -printf '%T@ %p\n' | \
     sort -nr | \
     head -n 2 | \
@@ -89,13 +86,13 @@ done
 
 # Step 3: Delete all other files not in the keep list
 find "$BACKUP_LOCATION" -type f -name '*' | grep -vFf "$TMP_KEEP_LIST" | while read -r file; do
-    echo "Deleting: $file"
+    echo "$(TZ=CET date "+%H:%M:%S") - Deleting: $file" | tee /proc/1/fd/1
     rm -- "$file"
 done
 
 # Cleanup temporary file
 rm "$TMP_KEEP_LIST"
 
-echo "$(TZ=CET date "+%H:%M:%S") - Cleanup complete. Kept all backups for the last $max_keep_days days and the two newest backups per week for the previous $max_keep_months months."
+echo "$(TZ=CET date "+%H:%M:%S") - Cleanup complete. Kept all backups for the last $max_keep_days days and the two newest backups per week for the previous $max_keep_months months." | tee /proc/1/fd/1
 
 fi
