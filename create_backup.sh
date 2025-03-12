@@ -2,7 +2,7 @@
 
 # !IMPORTANT! set the environment variables in the .env file!
 
-echo "$(TZ=CET date "+%H:%M:%S") - Starting Vaultwarden vault backup. (If login fails, please set environment variables)" | tee /proc/1/fd/1
+echo "$(TZ=CET date "+%H:%M:%S") - Starting Vaultwarden vault backup on $(TZ=CET date "+%d.%m.%Y"). (If login fails, please set environment variables)" | tee /proc/1/fd/1
 echo "$(TZ=CET date "+%H:%M:%S") - Attempting Login" | tee /proc/1/fd/1
 
 # Checking current status of bw cli config, especially whether the server adress has been set
